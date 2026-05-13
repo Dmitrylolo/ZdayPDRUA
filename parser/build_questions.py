@@ -139,6 +139,13 @@ for li, fl in enumerate(all_flat_lines):
     starts.append({"line_idx": li, "number": number})
 
 # ─── Phase 3: parse questions (now cross-page safe) ───────────────────────────
+def strip_trailing_page_numbers(text: str) -> str:
+    return re.sub(
+        r'(?<=[.!?»:])\s+\d{1,3}(\s+\d{1,3})*$',
+        '',
+        text,
+    ).strip()
+
 for i, start in enumerate(starts):
     end_line_idx = starts[i + 1]["line_idx"] if i + 1 < len(starts) else len(all_flat_lines)
 
@@ -197,12 +204,17 @@ for i, start in enumerate(starts):
 
     question_text = "\n".join(question_lines).strip()
     question_text = QUESTION_RE.sub("", question_text, count=1).strip()
+    question_text = strip_trailing_page_numbers(question_text)
+    # Strip trailing page-number artifact from question text (e.g. "в'їзд на територію:\n4")
+    # Includes ':' in lookbehind since questions often end with a colon before the page number.
+    # (\s+\d{1,3})* handles two consecutive page numbers, e.g. "?\n16\n17" (facing pages).
+    question_text = re.sub(r'(?<=[.!?»:])\s+\d{1,3}(\s+\d{1,3})*$', '', question_text).strip()
 
     natural_id = f"{fl_start['section_id'] or 'unknown'}-{start['number']}"
 
     # Strip trailing page-number artifacts from answer text (e.g. "Варіант 1 та 2. 5")
     for ans in answers:
-        cleaned = re.sub(r'(?<=[.!?»])\s+\d{1,3}$', '', ans['text'])
+        cleaned = strip_trailing_page_numbers(ans['text'])
         if cleaned != ans['text']:
             ans['text'] = cleaned
             if natural_id not in debug_page_num_artifacts:
