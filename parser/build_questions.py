@@ -13,7 +13,7 @@ IMAGES_DIR = OUT_DIR / "images"
 DEBUG_DIR = OUT_DIR / "debug"
 
 QUESTION_RE = re.compile(r"^(\d+)\.\s+")
-ANSWER_RE = re.compile(r"^([1-9])\)\s+")
+ANSWER_RE = re.compile(r"^([1-9])\)\s*")  # \s* — handles '1)Text' and '1)\nText' formats
 
 OUT_DIR.mkdir(exist_ok=True)
 
@@ -36,6 +36,7 @@ debug_no_answers: list[str] = []          # question IDs with no answers
 debug_embedded: list[str] = []            # question IDs where another question was detected mid-parse
 debug_duplicate_ids: list[str] = []       # question IDs that appeared more than once
 debug_duplicate_answer_idx: list[str] = [] # question IDs with repeated answer indices
+debug_artifacts: list[str] = []            # skipped: text too short to be a real question
 
 
 def block_text(block):
@@ -178,7 +179,8 @@ for i, start in enumerate(starts):
             }
         else:
             if current_answer is not None:
-                current_answer["text"] += " " + line
+                # strip keeps text clean when answer started with a bare '1)' line
+                current_answer["text"] = (current_answer["text"] + " " + line).strip()
             else:
                 question_lines.append(line)
 
@@ -187,6 +189,12 @@ for i, start in enumerate(starts):
 
     question_text = "\n".join(question_lines).strip()
     question_text = QUESTION_RE.sub("", question_text, count=1).strip()
+
+    # Skip obvious artifacts: captions / labels that matched QUESTION_RE but are
+    # not real questions (e.g. "1. Дозволено." or "2. Заборонено.».").
+    if len(question_text) < 20:
+        debug_artifacts.append(f"{fl_start['section_id'] or 'unknown'}-{start['number']} (p{q_page}): {question_text!r}")
+        continue
 
     question_counter += 1
     question_id = str(question_counter)
@@ -261,12 +269,14 @@ print(f"No answers               ({len(debug_no_answers)}): {debug_no_answers or
 print(f"Embedded question splits ({len(debug_embedded)}): {debug_embedded or 'none'}")
 print(f"Duplicate question IDs   ({len(debug_duplicate_ids)}): {debug_duplicate_ids or 'none'}")
 print(f"Duplicate answer indices ({len(debug_duplicate_answer_idx)}): {debug_duplicate_answer_idx or 'none'}")
+print(f"Artifacts skipped        ({len(debug_artifacts)}): {debug_artifacts or 'none'}")
 
 debug_report = {
     "no_answers": debug_no_answers,
     "embedded_questions": debug_embedded,
     "duplicate_ids": debug_duplicate_ids,
     "duplicate_answer_indices": debug_duplicate_answer_idx,
+    "artifacts_skipped": debug_artifacts,
 }
 with open(DEBUG_DIR / "debug_report.json", "w", encoding="utf-8") as f:
     json.dump(debug_report, f, ensure_ascii=False, indent=2)
