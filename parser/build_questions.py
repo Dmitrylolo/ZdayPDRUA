@@ -64,6 +64,12 @@ def finalize_answer(
     return False
 
 
+# ─── Phase 1: collect all text / image data across every page ────────────────
+# Flat lines carry page number and the section context active at that point,
+# so question detection and parsing can work across page boundaries.
+all_flat_lines: list[dict] = []   # {text, bbox, page, section_id, section_title}
+page_meta: dict[int, dict] = {}   # page_number → {image_blocks, height, width}
+
 for page_index, page in enumerate(doc):
     page_number = page_index + 1
     page_dict = page.get_text("dict")
@@ -78,166 +84,165 @@ for page_index, page in enumerate(doc):
 
     for block in blocks:
         bbox = fitz.Rect(block["bbox"])
-
         if block["type"] == 0:
             text = block_text(block)
             if text:
-                text_blocks.append({
-                    "bbox": bbox,
-                    "text": text,
-                })
-
+                text_blocks.append({"bbox": bbox, "text": text})
         elif block["type"] == 1:
-            image_blocks.append({
-                "bbox": bbox,
-            })
+            image_blocks.append({"bbox": bbox})
 
     text_blocks.sort(key=lambda b: (b["bbox"].y0, b["bbox"].x0))
 
-    # find section title (unchanged logic)
+    page_meta[page_number] = {
+        "image_blocks": image_blocks,
+        "height": page.rect.height,
+        "width": page.rect.width,
+    }
+
+    # Build flat lines; update section context inline as headers are encountered
+    # so every line carries the correct section_id/title at its position.
     for b in text_blocks:
         t = b["text"].replace("\n", " ").strip()
         if re.match(r"^\d+\.\s+[А-ЯІЇЄҐA-Z]", t) and t.isupper():
             parts = t.split(".", 1)
             current_section_id = parts[0].strip()
             current_section_title = parts[1].strip()
-
-    # Build a flat list of every individual line with its containing block bbox.
-    # This lets us detect question starts inside any line of any block, not just
-    # the first line, fixing the "multiple questions in one block" problem.
-    flat_lines: list[dict] = []
-    for b in text_blocks:
         for raw_line in b["text"].split("\n"):
             stripped = raw_line.strip()
             if stripped:
-                flat_lines.append({"text": stripped, "bbox": b["bbox"]})
+                all_flat_lines.append({
+                    "text": stripped,
+                    "bbox": b["bbox"],
+                    "page": page_number,
+                    "section_id": current_section_id,
+                    "section_title": current_section_title,
+                })
 
-    # Detect question starts by scanning every flat line.
-    starts = []
-    for li, fl in enumerate(flat_lines):
-        match = QUESTION_RE.match(fl["text"])
-        if not match:
-            continue
-        number = int(match.group(1))
-        # Must be at the left margin (not an answer or indented continuation)
-        if fl["bbox"].x0 >= 120:
-            continue
-        # Skip section-title lines (entirely uppercase, e.g. "1. ЗАГАЛЬНІ ПОЛОЖЕННЯ")
-        text = fl["text"]
-        if any(c.isalpha() for c in text) and text == text.upper():
-            continue
-        # Skip bare numbers with no meaningful content (e.g. "1." alone)
-        if len(text) <= 4:
-            continue
-        starts.append({"line_idx": li, "number": number, "y": fl["bbox"].y0})
+# ─── Phase 2: detect question starts across the full document ─────────────────
+starts = []
+for li, fl in enumerate(all_flat_lines):
+    match = QUESTION_RE.match(fl["text"])
+    if not match:
+        continue
+    number = int(match.group(1))
+    # Must be at the left margin (not an answer or indented continuation)
+    if fl["bbox"].x0 >= 120:
+        continue
+    # Skip section-title lines (entirely uppercase, e.g. "1. ЗАГАЛЬНІ ПОЛОЖЕННЯ")
+    text = fl["text"]
+    if any(c.isalpha() for c in text) and text == text.upper():
+        continue
+    # Skip bare numbers with no meaningful content (e.g. "1." alone)
+    if len(text) <= 4:
+        continue
+    starts.append({"line_idx": li, "number": number})
 
-    for i, start in enumerate(starts):
-        end_line_idx = starts[i + 1]["line_idx"] if i + 1 < len(starts) else len(flat_lines)
+# ─── Phase 3: parse questions (now cross-page safe) ───────────────────────────
+for i, start in enumerate(starts):
+    end_line_idx = starts[i + 1]["line_idx"] if i + 1 < len(starts) else len(all_flat_lines)
 
-        # y-range for image detection derived from flat_lines bboxes
-        start_y = flat_lines[start["line_idx"]]["bbox"].y0
-        end_y = (
-            flat_lines[end_line_idx]["bbox"].y0
-            if end_line_idx < len(flat_lines)
-            else page.rect.height
-        )
+    fl_start = all_flat_lines[start["line_idx"]]
+    q_page = fl_start["page"]
+    start_y = fl_start["bbox"].y0
 
-        lines = [fl["text"] for fl in flat_lines[start["line_idx"]:end_line_idx]]
+    lines = [fl["text"] for fl in all_flat_lines[start["line_idx"]:end_line_idx]]
 
-        if not lines:
-            continue
+    if not lines:
+        continue
 
-        question_lines: list[str] = []
-        answers: list[dict] = []
-        current_answer: dict | None = None
-        seen_answer_indices: dict[int, dict] = {}
-        has_dup_answer_idx = False
-        embedded_found = False
+    question_lines: list[str] = []
+    answers: list[dict] = []
+    current_answer: dict | None = None
+    seen_answer_indices: dict[int, dict] = {}
+    has_dup_answer_idx = False
+    embedded_found = False
 
-        for line in lines:
-            answer_match = ANSWER_RE.match(line)
-            q_match = QUESTION_RE.match(line)
+    for line in lines:
+        answer_match = ANSWER_RE.match(line)
+        q_match = QUESTION_RE.match(line)
 
-            # Safety net: a question number appearing after answers have already
-            # started means a question was not split by the starts detection
-            # (e.g. its x0 was just outside the threshold).  Stop here so the
-            # stray text doesn't corrupt the current question's last answer.
-            if q_match and answers and int(q_match.group(1)) != start["number"]:
-                embedded_found = True
-                break
+        # Safety net: a question number appearing after answers have already
+        # started means a question was not split by the starts detection
+        # (e.g. its x0 was just outside the threshold).  Stop here so the
+        # stray text doesn't corrupt the current question's last answer.
+        if q_match and answers and int(q_match.group(1)) != start["number"]:
+            embedded_found = True
+            break
 
-            if answer_match:
-                dup = finalize_answer(current_answer, answers, seen_answer_indices)
-                has_dup_answer_idx = has_dup_answer_idx or dup
-                current_answer = {
-                    "index": int(answer_match.group(1)),
-                    "text": ANSWER_RE.sub("", line).strip(),
-                }
-            else:
-                if current_answer is not None:
-                    current_answer["text"] += " " + line
-                else:
-                    question_lines.append(line)
-
-        dup = finalize_answer(current_answer, answers, seen_answer_indices)
-        has_dup_answer_idx = has_dup_answer_idx or dup
-
-        question_text = "\n".join(question_lines).strip()
-        # remove question number from question text
-        question_text = QUESTION_RE.sub("", question_text, count=1).strip()
-
-        # Global sequential ID — always unique regardless of section structure.
-        # natural_id (sectionId-number) is kept for debug tracking only.
-        question_counter += 1
-        question_id = str(question_counter)
-        natural_id = f"{current_section_id or 'unknown'}-{start['number']}"
-
-        # --- debug tracking ---
-        if not answers:
-            debug_no_answers.append(natural_id)
-        if embedded_found:
-            debug_embedded.append(natural_id)
-        if has_dup_answer_idx:
-            debug_duplicate_answer_idx.append(natural_id)
-        if natural_id in seen_natural_ids:
-            seen_natural_ids[natural_id] += 1
-            debug_duplicate_ids.append(natural_id)
+        if answer_match:
+            dup = finalize_answer(current_answer, answers, seen_answer_indices)
+            has_dup_answer_idx = has_dup_answer_idx or dup
+            current_answer = {
+                "index": int(answer_match.group(1)),
+                "text": ANSWER_RE.sub("", line).strip(),
+            }
         else:
-            seen_natural_ids[natural_id] = 1
+            if current_answer is not None:
+                current_answer["text"] += " " + line
+            else:
+                question_lines.append(line)
 
-        image_file = None
+    dup = finalize_answer(current_answer, answers, seen_answer_indices)
+    has_dup_answer_idx = has_dup_answer_idx or dup
 
-        related_images = [
-            img for img in image_blocks
-            if img["bbox"].y0 >= start_y and img["bbox"].y0 < end_y
-        ]
+    question_text = "\n".join(question_lines).strip()
+    question_text = QUESTION_RE.sub("", question_text, count=1).strip()
 
-        if related_images:
-            # crop combined area of all images related to this question
-            rect = related_images[0]["bbox"]
-            for img in related_images[1:]:
-                rect |= img["bbox"]
+    question_counter += 1
+    question_id = str(question_counter)
+    natural_id = f"{fl_start['section_id'] or 'unknown'}-{start['number']}"
 
-            # add small padding
-            rect.x0 = max(0, rect.x0 - 4)
-            rect.y0 = max(0, rect.y0 - 4)
-            rect.x1 = min(page.rect.width, rect.x1 + 4)
-            rect.y1 = min(page.rect.height, rect.y1 + 4)
+    # --- debug tracking ---
+    if not answers:
+        debug_no_answers.append(natural_id)
+    if embedded_found:
+        debug_embedded.append(natural_id)
+    if has_dup_answer_idx:
+        debug_duplicate_answer_idx.append(natural_id)
+    if natural_id in seen_natural_ids:
+        seen_natural_ids[natural_id] += 1
+        debug_duplicate_ids.append(natural_id)
+    else:
+        seen_natural_ids[natural_id] = 1
 
-            image_file = f"{question_id}.png"
-            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=rect)
-            pix.save(IMAGES_DIR / image_file)
+    # Image extraction: from the question's start page, y-range [start_y, end_y].
+    # end_y = y0 of the next question if it's on the same page, else full page height.
+    pm = page_meta[q_page]
+    if end_line_idx < len(all_flat_lines) and all_flat_lines[end_line_idx]["page"] == q_page:
+        end_y = all_flat_lines[end_line_idx]["bbox"].y0
+    else:
+        end_y = pm["height"]
 
-        questions.append({
-            "id": question_id,
-            "sectionId": current_section_id,
-            "sectionTitle": current_section_title,
-            "number": start["number"],
-            "page": page_number,
-            "text": question_text,
-            "answers": answers,
-            "image": image_file,
-        })
+    image_file = None
+    related_images = [
+        img for img in pm["image_blocks"]
+        if img["bbox"].y0 >= start_y and img["bbox"].y0 < end_y
+    ]
+
+    if related_images:
+        rect = related_images[0]["bbox"]
+        for img in related_images[1:]:
+            rect |= img["bbox"]
+
+        rect.x0 = max(0, rect.x0 - 4)
+        rect.y0 = max(0, rect.y0 - 4)
+        rect.x1 = min(pm["width"], rect.x1 + 4)
+        rect.y1 = min(pm["height"], rect.y1 + 4)
+
+        image_file = f"{question_id}.png"
+        pix = doc[q_page - 1].get_pixmap(matrix=fitz.Matrix(2, 2), clip=rect)
+        pix.save(IMAGES_DIR / image_file)
+
+    questions.append({
+        "id": question_id,
+        "sectionId": fl_start["section_id"],
+        "sectionTitle": fl_start["section_title"],
+        "number": start["number"],
+        "page": q_page,
+        "text": question_text,
+        "answers": answers,
+        "image": image_file,
+    })
 
 with open(OUT_DIR / "questions.raw.json", "w", encoding="utf-8") as f:
     json.dump({
