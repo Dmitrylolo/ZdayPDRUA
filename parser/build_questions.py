@@ -192,7 +192,7 @@ for i, start in enumerate(starts):
 
     # Skip obvious artifacts: captions / labels that matched QUESTION_RE but are
     # not real questions (e.g. "1. Дозволено." or "2. Заборонено.».").
-    if len(question_text) < 20:
+    if len(question_text) < 14:
         debug_artifacts.append(f"{fl_start['section_id'] or 'unknown'}-{start['number']} (p{q_page}): {question_text!r}")
         continue
 
