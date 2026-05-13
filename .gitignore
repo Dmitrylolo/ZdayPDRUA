@@ -77,5 +77,10 @@ yarn-error.log
 # eslint
 .eslintcache
 
+# parser
+parser/__pycache__/
+parser/output/
+parser/*.pdf
+
 # vscode
 .vscode/*
