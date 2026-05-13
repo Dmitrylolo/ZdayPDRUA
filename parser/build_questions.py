@@ -12,7 +12,7 @@ OUT_DIR = Path("output")
 IMAGES_DIR = OUT_DIR / "images"
 DEBUG_DIR = OUT_DIR / "debug"
 
-QUESTION_RE = re.compile(r"^(\d+)\.\s+")
+QUESTION_RE = re.compile(r"^(\d+)\.(?!\d)\s*")  # (?!\d) — не збігатись з десятковими '30.5 км'
 ANSWER_RE = re.compile(r"^([1-9])\)\s*")  # \s* — handles '1)Text' and '1)\nText' formats
 
 OUT_DIR.mkdir(exist_ok=True)
@@ -26,8 +26,7 @@ for _dir in (IMAGES_DIR, DEBUG_DIR):
 doc = fitz.open(PDF_PATH)
 
 questions = []
-question_counter = 0          # global sequential ID (always unique)
-seen_natural_ids: dict[str, int] = {}  # sectionId-number → count (for dup tracking only)
+seen_natural_ids: dict[str, int] = {}  # naturalId → occurrence count (also drives duplicate detection)
 current_section_id = None
 current_section_title = None
 
@@ -37,6 +36,7 @@ debug_embedded: list[str] = []            # question IDs where another question 
 debug_duplicate_ids: list[str] = []       # question IDs that appeared more than once
 debug_duplicate_answer_idx: list[str] = [] # question IDs with repeated answer indices
 debug_artifacts: list[str] = []            # skipped: text too short to be a real question
+debug_page_num_artifacts: list[str] = []   # naturalIds where trailing page numbers were stripped from answers
 
 
 def block_text(block):
@@ -104,7 +104,7 @@ for page_index, page in enumerate(doc):
     # so every line carries the correct section_id/title at its position.
     for b in text_blocks:
         t = b["text"].replace("\n", " ").strip()
-        if re.match(r"^\d+\.\s+[А-ЯІЇЄҐA-Z]", t) and t.isupper():
+        if re.match(r"^\d+\.\s*[А-ЯІЇЄҐA-Z]", t) and t.isupper():
             parts = t.split(".", 1)
             current_section_id = parts[0].strip()
             current_section_title = parts[1].strip()
@@ -179,6 +179,14 @@ for i, start in enumerate(starts):
             }
         else:
             if current_answer is not None:
+                # Check for embedded question mid-line: "...засобів. 6.Що означає..."
+                em = re.search(r'(?<=[.!?»])\s+\d+\.\s*[А-ЯІЇЄҐ]', line)
+                if em:
+                    pre = line[:em.start()].strip()
+                    if pre:
+                        current_answer["text"] = (current_answer["text"] + " " + pre).strip()
+                    embedded_found = True
+                    break
                 # strip keeps text clean when answer started with a bare '1)' line
                 current_answer["text"] = (current_answer["text"] + " " + line).strip()
             else:
@@ -190,28 +198,35 @@ for i, start in enumerate(starts):
     question_text = "\n".join(question_lines).strip()
     question_text = QUESTION_RE.sub("", question_text, count=1).strip()
 
+    natural_id = f"{fl_start['section_id'] or 'unknown'}-{start['number']}"
+
+    # Strip trailing page-number artifacts from answer text (e.g. "Варіант 1 та 2. 5")
+    for ans in answers:
+        cleaned = re.sub(r'(?<=[.!?»])\s+\d{1,3}$', '', ans['text'])
+        if cleaned != ans['text']:
+            ans['text'] = cleaned
+            if natural_id not in debug_page_num_artifacts:
+                debug_page_num_artifacts.append(natural_id)
+
     # Skip obvious artifacts: captions / labels that matched QUESTION_RE but are
-    # not real questions (e.g. "1. Дозволено." or "2. Заборонено.».").
+    # not real questions (e.g. "1. Дозволено." or "2. Заборонено.»").
     if len(question_text) < 14:
-        debug_artifacts.append(f"{fl_start['section_id'] or 'unknown'}-{start['number']} (p{q_page}): {question_text!r}")
+        debug_artifacts.append(f"{natural_id} (p{q_page}): {question_text!r}")
         continue
 
-    question_counter += 1
-    question_id = str(question_counter)
-    natural_id = f"{fl_start['section_id'] or 'unknown'}-{start['number']}"
+    occurrence = seen_natural_ids.get(natural_id, 0) + 1
+    seen_natural_ids[natural_id] = occurrence
+    question_id = f"{natural_id}-{occurrence}"
 
     # --- debug tracking ---
     if not answers:
-        debug_no_answers.append(natural_id)
+        debug_no_answers.append(question_id)
     if embedded_found:
-        debug_embedded.append(natural_id)
+        debug_embedded.append(question_id)
     if has_dup_answer_idx:
-        debug_duplicate_answer_idx.append(natural_id)
-    if natural_id in seen_natural_ids:
-        seen_natural_ids[natural_id] += 1
-        debug_duplicate_ids.append(natural_id)
-    else:
-        seen_natural_ids[natural_id] = 1
+        debug_duplicate_answer_idx.append(question_id)
+    if occurrence > 1:
+        debug_duplicate_ids.append(question_id)
 
     # Image extraction: from the question's start page, y-range [start_y, end_y].
     # end_y = y0 of the next question if it's on the same page, else full page height.
@@ -243,6 +258,8 @@ for i, start in enumerate(starts):
 
     questions.append({
         "id": question_id,
+        "naturalId": natural_id,
+        "occurrence": occurrence,
         "sectionId": fl_start["section_id"],
         "sectionTitle": fl_start["section_title"],
         "number": start["number"],
@@ -270,6 +287,7 @@ print(f"Embedded question splits ({len(debug_embedded)}): {debug_embedded or 'no
 print(f"Duplicate question IDs   ({len(debug_duplicate_ids)}): {debug_duplicate_ids or 'none'}")
 print(f"Duplicate answer indices ({len(debug_duplicate_answer_idx)}): {debug_duplicate_answer_idx or 'none'}")
 print(f"Artifacts skipped        ({len(debug_artifacts)}): {debug_artifacts or 'none'}")
+print(f"Page num artifacts       ({len(debug_page_num_artifacts)}): {debug_page_num_artifacts or 'none'}")
 
 debug_report = {
     "no_answers": debug_no_answers,
@@ -277,6 +295,7 @@ debug_report = {
     "duplicate_ids": debug_duplicate_ids,
     "duplicate_answer_indices": debug_duplicate_answer_idx,
     "artifacts_skipped": debug_artifacts,
+    "page_num_artifacts": debug_page_num_artifacts,
 }
 with open(DEBUG_DIR / "debug_report.json", "w", encoding="utf-8") as f:
     json.dump(debug_report, f, ensure_ascii=False, indent=2)
