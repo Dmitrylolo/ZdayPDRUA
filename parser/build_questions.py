@@ -26,7 +26,8 @@ for _dir in (IMAGES_DIR, DEBUG_DIR):
 doc = fitz.open(PDF_PATH)
 
 questions = []
-seen_ids: dict[str, int] = {}
+question_counter = 0          # global sequential ID (always unique)
+seen_natural_ids: dict[str, int] = {}  # sectionId-number → count (for dup tracking only)
 current_section_id = None
 current_section_title = None
 
@@ -185,20 +186,24 @@ for page_index, page in enumerate(doc):
         # remove question number from question text
         question_text = QUESTION_RE.sub("", question_text, count=1).strip()
 
-        question_id = f"{current_section_id or 'unknown'}-{start['number']}"
+        # Global sequential ID — always unique regardless of section structure.
+        # natural_id (sectionId-number) is kept for debug tracking only.
+        question_counter += 1
+        question_id = str(question_counter)
+        natural_id = f"{current_section_id or 'unknown'}-{start['number']}"
 
         # --- debug tracking ---
         if not answers:
-            debug_no_answers.append(question_id)
+            debug_no_answers.append(natural_id)
         if embedded_found:
-            debug_embedded.append(question_id)
+            debug_embedded.append(natural_id)
         if has_dup_answer_idx:
-            debug_duplicate_answer_idx.append(question_id)
-        if question_id in seen_ids:
-            seen_ids[question_id] += 1
-            debug_duplicate_ids.append(question_id)
+            debug_duplicate_answer_idx.append(natural_id)
+        if natural_id in seen_natural_ids:
+            seen_natural_ids[natural_id] += 1
+            debug_duplicate_ids.append(natural_id)
         else:
-            seen_ids[question_id] = 1
+            seen_natural_ids[natural_id] = 1
 
         image_file = None
 
