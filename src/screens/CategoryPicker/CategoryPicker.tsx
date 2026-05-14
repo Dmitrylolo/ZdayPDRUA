@@ -5,9 +5,9 @@ import { SafeScreen } from '@/components/templates';
 import { Paths } from '@/navigation/paths';
 import type { RootScreenProps } from '@/navigation/types';
 import {
-  VEHICLE_CATEGORIES,
-  vehicleCategoryStorage,
-  type VehicleCategoryId,
+    VEHICLE_CATEGORIES,
+    vehicleCategoryStorage,
+    type VehicleCategoryId,
 } from '@/services/vehicleCategory/vehicleCategory';
 import { useTheme } from '@/theme';
 

@@ -7,15 +7,15 @@ import type { RootStackParamList } from '@/navigation/types';
 import { useTheme } from '@/theme';
 
 import {
-    Categories,
-    CategoryPicker,
-    Exam,
-    Example,
-    Home,
-    Mistakes,
-    Quiz,
-    Startup,
-    Statistics,
+  Categories,
+  CategoryPicker,
+  Exam,
+  Example,
+  Home,
+  Mistakes,
+  Quiz,
+  Startup,
+  Statistics,
 } from '@/screens';
 
 const Stack = createStackNavigator<RootStackParamList>();
