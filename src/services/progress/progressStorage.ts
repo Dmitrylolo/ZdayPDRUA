@@ -1,8 +1,23 @@
+import { createMMKV } from 'react-native-mmkv';
+
 import type { Progress, QuestionAttempt, QuestionProgress } from './progress.types';
+
+const _storage = createMMKV({ id: 'progress' });
+const PROGRESS_KEY = 'byQuestion';
+
+function _loadByQuestion(): Record<string, QuestionProgress> {
+  const raw = _storage.getString(PROGRESS_KEY);
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as Record<string, QuestionProgress>;
+  } catch {
+    return {};
+  }
+}
 
 let _state: Progress = {
   attempts: [],
-  byQuestion: {},
+  byQuestion: _loadByQuestion(),
 };
 
 export const progressStorage = {
@@ -31,9 +46,7 @@ export const progressStorage = {
       lastAttemptAt: 0,
     };
 
-    _state = {
-      attempts: [..._state.attempts, attempt],
-      byQuestion: {
+    const newByQuestion = {
         ..._state.byQuestion,
         [questionId]: {
           ...existing,
@@ -42,11 +55,16 @@ export const progressStorage = {
           lastAnswerCorrect: isCorrect,
           lastAttemptAt: attempt.timestamp,
         },
-      },
+      };
+    _storage.set(PROGRESS_KEY, JSON.stringify(newByQuestion));
+    _state = {
+      attempts: [..._state.attempts, attempt],
+      byQuestion: newByQuestion,
     };
   },
 
   resetProgress(): void {
+    _storage.remove(PROGRESS_KEY);
     _state = { attempts: [], byQuestion: {} };
   },
 };

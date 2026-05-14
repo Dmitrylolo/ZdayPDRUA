@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { progressStorage } from '@/services/progress/progressStorage';
 import type { Question } from '@/services/questions/questions.types';
 import { questionsRepository } from '@/services/questions/questionsRepository';
+import { vehicleCategoryStorage } from '@/services/vehicleCategory/vehicleCategory';
 
 interface SessionConfig {
   sectionIds?: string[];
@@ -21,7 +22,10 @@ const buildQuestions = (config: SessionConfig): Question[] => {
   } else if (config.sectionIds && config.sectionIds.length > 0) {
     qs = questionsRepository.getQuestionsBySectionIds(config.sectionIds);
   } else {
-    qs = questionsRepository.getAllQuestions();
+    // Default: respect active vehicle category
+    const catId = vehicleCategoryStorage.getSelected();
+    const sectionIds = catId ? vehicleCategoryStorage.getSectionIds(catId) : [];
+    qs = questionsRepository.getQuestionsFiltered(sectionIds);
   }
 
   if (config.shuffled) {

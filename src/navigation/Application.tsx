@@ -8,6 +8,7 @@ import { useTheme } from '@/theme';
 
 import {
     Categories,
+    CategoryPicker,
     Exam,
     Example,
     Home,
@@ -28,6 +29,7 @@ function ApplicationNavigator() {
         <Stack.Navigator key={variant} screenOptions={{ headerShown: false }}>
           <Stack.Screen component={Startup} name={Paths.Startup} />
           <Stack.Screen component={Home} name={Paths.Home} />
+          <Stack.Screen component={CategoryPicker} name={Paths.CategoryPicker} />
           <Stack.Screen component={Categories} name={Paths.Categories} />
           <Stack.Screen component={Quiz} name={Paths.Quiz} />
           <Stack.Screen component={Exam} name={Paths.Exam} />

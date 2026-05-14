@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { Paths } from '@/navigation/paths';
+import { vehicleCategoryStorage } from '@/services/vehicleCategory/vehicleCategory';
 import { useTheme } from '@/theme';
 
 import { AssetByVariant } from '@/components/atoms';
@@ -24,9 +25,10 @@ function Startup({ navigation }: RootScreenProps<Paths.Startup>) {
 
   useEffect(() => {
     if (isSuccess) {
+      const hasCategory = vehicleCategoryStorage.getSelected() !== null;
       navigation.reset({
         index: 0,
-        routes: [{ name: Paths.Home }],
+        routes: [{ name: hasCategory ? Paths.Home : Paths.CategoryPicker }],
       });
     }
   }, [isSuccess, navigation]);

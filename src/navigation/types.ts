@@ -9,6 +9,7 @@ export type RootScreenProps<
 export type RootStackParamList = {
   [Paths.Startup]: undefined;
   [Paths.Home]: undefined;
+  [Paths.CategoryPicker]: undefined;
   [Paths.Categories]: undefined;
   [Paths.Quiz]: {
     sectionIds?: string[];

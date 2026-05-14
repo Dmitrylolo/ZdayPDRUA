@@ -1,11 +1,11 @@
 import type { Question, QuestionSection } from './questions.types';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const devData = require('@/assets/questions/questions.dev.json') as {
+const _data = require('@/assets/questions/questions.json') as {
   questions: Question[];
 };
 
-const _questions: Question[] = devData.questions;
+const _questions: Question[] = _data.questions;
 
 const _sectionsMap = new Map<string, QuestionSection>();
 for (const q of _questions) {
@@ -30,6 +30,20 @@ export const questionsRepository = {
 
   getSections(): QuestionSection[] {
     return _sections;
+  },
+
+  /** Returns only sections whose IDs are in the given set. */
+  getSectionsFiltered(sectionIds: string[]): QuestionSection[] {
+    if (sectionIds.length === 0) return _sections;
+    const set = new Set(sectionIds);
+    return _sections.filter(s => set.has(s.id));
+  },
+
+  /** Returns only questions whose sectionId is in the given set. */
+  getQuestionsFiltered(sectionIds: string[]): Question[] {
+    if (sectionIds.length === 0) return _questions;
+    const set = new Set(sectionIds);
+    return _questions.filter(q => set.has(q.sectionId));
   },
 
   getQuestionsBySectionIds(sectionIds: string[]): Question[] {

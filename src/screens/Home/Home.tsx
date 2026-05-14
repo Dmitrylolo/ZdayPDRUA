@@ -3,6 +3,7 @@ import {
   AlertCircle,
   BarChart2,
   BookOpen,
+  ChevronRight,
   ClipboardList,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -18,6 +19,10 @@ import { SafeScreen } from '@/components/templates';
 import { useQuestionStats } from '@/hooks/domain/questions/useQuestionStats';
 import { Paths } from '@/navigation/paths';
 import type { RootScreenProps } from '@/navigation/types';
+import {
+  VEHICLE_CATEGORIES,
+  vehicleCategoryStorage,
+} from '@/services/vehicleCategory/vehicleCategory';
 import { useTheme } from '@/theme';
 
 const ICON_COLORS = {
@@ -66,6 +71,9 @@ function Home({ navigation }: RootScreenProps<Paths.Home>) {
   const { fonts, gutters, layout, borders } = useTheme();
   const stats = useQuestionStats();
   const [animTrigger, setAnimTrigger] = useState(0);
+
+  const activeCategoryId = vehicleCategoryStorage.getSelected();
+  const activeCategory = VEHICLE_CATEGORIES.find(c => c.id === activeCategoryId);
 
   // Reanimated shared values for progress bar (fill/empty flex)
   const barFill = useSharedValue(0);
@@ -140,20 +148,44 @@ function Home({ navigation }: RootScreenProps<Paths.Home>) {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={[gutters.marginBottom_24, gutters.marginTop_16]}>
-          <Text
-            style={[
-              fonts.size_32,
-              fonts.bold,
-              fonts.gray800,
-              { letterSpacing: -0.5 },
-            ]}
+        <View style={[layout.row, layout.itemsCenter, layout.justifyBetween, gutters.marginBottom_24, gutters.marginTop_16]}>
+          <View>
+            <Text
+              style={[
+                fonts.size_32,
+                fonts.bold,
+                fonts.gray800,
+                { letterSpacing: -0.5 },
+              ]}
+            >
+              Здай ПДР UA
+            </Text>
+            <Text style={[fonts.size_16, fonts.gray200, { marginTop: 4 }]}>
+              Підготовка до іспиту ПДР
+            </Text>
+          </View>
+
+          {/* Category badge */}
+          <Pressable
+            onPress={() => navigation.navigate(Paths.CategoryPicker)}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#E1E1EF',
+              borderRadius: 20,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              opacity: pressed ? 0.7 : 1,
+            })}
           >
-            Здай ПДР UA
-          </Text>
-          <Text style={[fonts.size_16, fonts.gray200, { marginTop: 4 }]}>
-            Підготовка до іспиту ПДР
-          </Text>
+            <Text style={{ fontSize: 16, marginRight: 4 }}>
+              {activeCategory?.emoji ?? '📚'}
+            </Text>
+            <Text style={[fonts.size_12, fonts.bold, { color: '#44427D', marginRight: 2 }]}>
+              {activeCategoryId ?? 'all'}
+            </Text>
+            <ChevronRight size={12} color="#44427D" />
+          </Pressable>
         </View>
 
         {/* Overall progress card */}
