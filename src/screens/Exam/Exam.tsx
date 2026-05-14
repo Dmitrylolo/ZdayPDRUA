@@ -1,5 +1,5 @@
 import { ChevronLeft } from 'lucide-react-native';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { AnswerState } from '@/components/AnswerOption';
@@ -19,21 +19,23 @@ function Exam({ navigation }: RootScreenProps<Paths.Exam>) {
   const session = useQuestionSession({ shuffled: true, limit: EXAM_SIZE, mode: 'exam' });
   const isFinished = session.isLastQuestion && session.isAnswered;
   const examSaved = useRef(false);
-  const savedExamId = useRef<string | null>(null);
+  // useState so setting the ID triggers a re-render and the button appears
+  const [savedExamId, setSavedExamId] = useState<string | null>(null);
+  // Local pending answer — lets the user change selection before confirming with Далі
+  const [pendingAnswer, setPendingAnswer] = useState<number | null>(null);
 
   // Save exam result exactly once when the exam finishes
   useEffect(() => {
     if (isFinished && !examSaved.current) {
       examSaved.current = true;
       const result = session.submitExam();
-      savedExamId.current = result.id;
+      setSavedExamId(result.id);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFinished]);
 
   const getAnswerState = (answerIndex: number): AnswerState => {
-    if (!session.isAnswered) return 'default';
-    if (answerIndex === session.selectedAnswer) return 'selected';
+    if (answerIndex === pendingAnswer) return 'selected';
     return 'default';
   };
 
@@ -121,14 +123,12 @@ function Exam({ navigation }: RootScreenProps<Paths.Exam>) {
             </Text>
           </Pressable>
 
-          {savedExamId.current != null && (
+          {savedExamId != null && (
             <Pressable
               onPress={() =>
-                navigation.navigate(Paths.ExamDetail, {
-                  examId: savedExamId.current!,
-                })
+                navigation.navigate(Paths.ExamDetail, { examId: savedExamId })
               }
-            style={[gutters.marginTop_16]}
+              style={[gutters.marginTop_16]}
             >
               <Text style={[fonts.size_16, { color: '#2980B9' }]}>
                 Переглянути детально →
@@ -191,14 +191,18 @@ function Exam({ navigation }: RootScreenProps<Paths.Exam>) {
             key={answer.index}
             answer={answer}
             state={getAnswerState(answer.index)}
-            onPress={() => session.selectAnswer(answer.index)}
-            disabled={session.isAnswered}
+            onPress={() => setPendingAnswer(answer.index)}
+            disabled={false}
           />
         ))}
 
-        {session.isAnswered && (
+        {pendingAnswer !== null && (
           <Pressable
-            onPress={session.nextQuestion}
+            onPress={() => {
+              session.selectAnswer(pendingAnswer);
+              session.nextQuestion();
+              setPendingAnswer(null);
+            }}
             style={({ pressed }) => [
               borders.rounded_16,
               gutters.marginTop_12,
