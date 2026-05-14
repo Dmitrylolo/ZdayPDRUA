@@ -1,4 +1,5 @@
 import { ChevronLeft } from 'lucide-react-native';
+import { useEffect } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { AnswerState } from '@/components/AnswerOption';
@@ -8,6 +9,7 @@ import { SafeScreen } from '@/components/templates';
 import { useQuestionSession } from '@/hooks/domain/questions/useQuestionSession';
 import { Paths } from '@/navigation/paths';
 import type { RootScreenProps } from '@/navigation/types';
+import { haptics } from '@/utils/haptics';
 import { useTheme } from '@/theme';
 
 function Quiz({ navigation, route }: RootScreenProps<Paths.Quiz>) {
@@ -15,6 +17,17 @@ function Quiz({ navigation, route }: RootScreenProps<Paths.Quiz>) {
   const { fonts, gutters, layout, borders } = useTheme();
 
   const session = useQuestionSession({ sectionIds, questionIds, shuffled: true });
+
+  // Haptic feedback when answer is revealed
+  useEffect(() => {
+    if (!session.isAnswered || !session.question) return;
+    if (session.selectedAnswer === session.question.correctAnswerIndex) {
+      haptics.success();
+    } else {
+      haptics.error();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.isAnswered]);
 
   const getAnswerState = (answerIndex: number): AnswerState => {
     if (!session.isAnswered) return 'default';

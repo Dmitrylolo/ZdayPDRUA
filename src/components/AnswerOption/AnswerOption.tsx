@@ -2,6 +2,7 @@ import { Check, X } from 'lucide-react-native';
 import { Platform, Pressable, Text, View } from 'react-native';
 
 import type { Answer } from '@/services/questions/questions.types';
+import { haptics } from '@/utils/haptics';
 import { useTheme } from '@/theme';
 
 export type AnswerState = 'default' | 'selected' | 'correct' | 'wrong';
@@ -40,7 +41,10 @@ function AnswerOption({ answer, state, onPress, disabled }: AnswerOptionProps) {
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        if (!disabled) haptics.selection();
+        onPress();
+      }}
       disabled={disabled}
       style={({ pressed }) => [
         layout.row,

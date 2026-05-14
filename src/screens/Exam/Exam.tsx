@@ -9,6 +9,7 @@ import { SafeScreen } from '@/components/templates';
 import { useQuestionSession } from '@/hooks/domain/questions/useQuestionSession';
 import { Paths } from '@/navigation/paths';
 import type { RootScreenProps } from '@/navigation/types';
+import { haptics } from '@/utils/haptics';
 import { useTheme } from '@/theme';
 
 const EXAM_SIZE = 20;
@@ -191,7 +192,10 @@ function Exam({ navigation }: RootScreenProps<Paths.Exam>) {
             key={answer.index}
             answer={answer}
             state={getAnswerState(answer.index)}
-            onPress={() => setPendingAnswer(answer.index)}
+            onPress={() => {
+              haptics.selection();
+              setPendingAnswer(answer.index);
+            }}
             disabled={false}
           />
         ))}
@@ -199,6 +203,7 @@ function Exam({ navigation }: RootScreenProps<Paths.Exam>) {
         {pendingAnswer !== null && (
           <Pressable
             onPress={() => {
+              haptics.impactLight();
               session.selectAnswer(pendingAnswer);
               session.nextQuestion();
               setPendingAnswer(null);

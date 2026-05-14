@@ -1,6 +1,7 @@
-import { Image, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 
 import { getQuestionImage } from '@/assets/questions/imagesMap';
+import ZoomableImage from '@/components/ZoomableImage';
 import type { Question } from '@/services/questions/questions.types';
 import { useTheme } from '@/theme';
 
@@ -90,11 +91,7 @@ function QuestionCard({ question, currentIndex, totalCount }: QuestionCardProps)
             alignItems: 'center',
           }}
         >
-          <Image
-            source={imageSource}
-            style={{ width: '100%', height: 180 }}
-            resizeMode="contain"
-          />
+          <ZoomableImage source={imageSource} />
         </View>
       )}
     </View>
