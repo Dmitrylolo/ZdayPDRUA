@@ -2,8 +2,8 @@ import { Check, X } from 'lucide-react-native';
 import { Platform, Pressable, Text, View } from 'react-native';
 
 import type { Answer } from '@/services/questions/questions.types';
-import { haptics } from '@/utils/haptics';
 import { useTheme } from '@/theme';
+import { haptics } from '@/utils/haptics';
 
 export type AnswerState = 'default' | 'selected' | 'correct' | 'wrong';
 

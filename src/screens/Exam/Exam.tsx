@@ -10,8 +10,8 @@ import { SafeScreen } from '@/components/templates';
 import { useQuestionSession } from '@/hooks/domain/questions/useQuestionSession';
 import { Paths } from '@/navigation/paths';
 import type { RootScreenProps } from '@/navigation/types';
-import { haptics } from '@/utils/haptics';
 import { useTheme } from '@/theme';
+import { haptics } from '@/utils/haptics';
 
 const EXAM_SIZE = 20;
 

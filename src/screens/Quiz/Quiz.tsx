@@ -9,8 +9,8 @@ import { SafeScreen } from '@/components/templates';
 import { useQuestionSession } from '@/hooks/domain/questions/useQuestionSession';
 import { Paths } from '@/navigation/paths';
 import type { RootScreenProps } from '@/navigation/types';
-import { haptics } from '@/utils/haptics';
 import { useTheme } from '@/theme';
+import { haptics } from '@/utils/haptics';
 
 function Quiz({ navigation, route }: RootScreenProps<Paths.Quiz>) {
   const { sectionIds, questionIds } = route.params;
