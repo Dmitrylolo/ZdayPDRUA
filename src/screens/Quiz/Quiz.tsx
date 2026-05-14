@@ -68,9 +68,32 @@ function Quiz({ navigation, route }: RootScreenProps<Paths.Quiz>) {
         <Pressable onPress={() => navigation.goBack()}>
           <ChevronLeft size={28} color="#44427D" />
         </Pressable>
-        <Text style={[fonts.size_16, fonts.bold, fonts.gray800, { marginLeft: 16 }]}>
+        <Text style={[fonts.size_16, fonts.bold, fonts.gray800, { marginLeft: 16, flex: 1 }]}>
           Навчання
         </Text>
+        {/* Skipped badge — navigate to skipped questions */}
+        {session.skippedCount > 0 && (
+          <Pressable
+            onPress={() =>
+              navigation.replace(Paths.Quiz, { questionIds: session.skippedIds })
+            }
+            style={[
+              borders.rounded_16,
+              {
+                backgroundColor: '#FFF3CD',
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+              },
+            ]}
+          >
+            <Text style={{ fontSize: 12, color: '#856404', fontWeight: '600' }}>
+              {`Пропущені: ${session.skippedCount}`}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       <ScrollView
@@ -96,6 +119,29 @@ function Quiz({ navigation, route }: RootScreenProps<Paths.Quiz>) {
             disabled={session.isAnswered}
           />
         ))}
+
+        {/* Skip button — only visible before answering */}
+        {!session.isAnswered && (
+          <Pressable
+            onPress={() => {
+              haptics.impactLight();
+              session.skipQuestion();
+            }}
+            style={({ pressed }) => [
+              borders.rounded_16,
+              {
+                borderWidth: 1,
+                borderColor: '#E0E0E0',
+                padding: 14,
+                alignItems: 'center',
+                opacity: pressed ? 0.7 : 1,
+                marginBottom: 8,
+              },
+            ]}
+          >
+            <Text style={[fonts.size_16, fonts.gray200]}>Пропустити</Text>
+          </Pressable>
+        )}
 
         {/* Explanation / Next */}
         {session.isAnswered && (

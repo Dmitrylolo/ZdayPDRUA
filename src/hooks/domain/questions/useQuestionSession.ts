@@ -44,15 +44,26 @@ const buildQuestions = (config: SessionConfig): Question[] => {
 
 export const useQuestionSession = (config: SessionConfig) => {
   const [questions] = useState<Question[]>(() => buildQuestions(config));
-  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Queue of indices into `questions[]` still to answer (head = current)
+  const [queue, setQueue] = useState<number[]>(() =>
+    questions.map((_, i) => i),
+  );
+  // Sequential display counter (0, 1, 2…) — for "Питання X з Y" progress
+  const [displayIndex, setDisplayIndex] = useState(0);
+
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
-  const [sessionAnswers, setSessionAnswers] = useState<
-    Record<string, number>
-  >({});
+  const [sessionAnswers, setSessionAnswers] = useState<Record<string, number>>(
+    {},
+  );
+  // IDs of skipped questions (in skip order)
+  const [skippedIds, setSkippedIds] = useState<string[]>([]);
 
-  const currentQuestion = questions[currentIndex] ?? null;
-  const isLastQuestion = currentIndex >= questions.length - 1;
+  const queueHead = queue[0] ?? -1;
+  const currentQuestion = queueHead >= 0 ? (questions[queueHead] ?? null) : null;
+  const isLastQuestion = queue.length <= 1;
+  const isFinished = queue.length === 0;
 
   const sessionCorrect = Object.entries(sessionAnswers).filter(
     ([qId, answerIdx]) => {
@@ -70,7 +81,6 @@ export const useQuestionSession = (config: SessionConfig) => {
         ...prev,
         [currentQuestion.id]: answerIndex,
       }));
-      // In exam mode, don't pollute training stats
       if (config.mode !== 'exam') {
         const isCorrect = answerIndex === currentQuestion.correctAnswerIndex;
         progressStorage.saveAttempt(
@@ -83,6 +93,16 @@ export const useQuestionSession = (config: SessionConfig) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [isAnswered, currentQuestion],
   );
+
+  /** Skip current question (training only). Moves to next; skipped tracked separately. */
+  const skipQuestion = useCallback(() => {
+    if (!currentQuestion || isAnswered) return;
+    setSkippedIds(prev => [...prev, currentQuestion.id]);
+    setQueue(prev => prev.slice(1));
+    setSelectedAnswer(null);
+    setIsAnswered(false);
+    setDisplayIndex(prev => prev + 1);
+  }, [currentQuestion, isAnswered]);
 
   const submitExam = useCallback((): ExamResult => {
     const catId = vehicleCategoryStorage.getSelected() ?? 'B';
@@ -108,22 +128,28 @@ export const useQuestionSession = (config: SessionConfig) => {
 
   const nextQuestion = useCallback(() => {
     if (isLastQuestion) return;
+    setQueue(prev => prev.slice(1));
     setSelectedAnswer(null);
     setIsAnswered(false);
-    setCurrentIndex(i => i + 1);
+    setDisplayIndex(prev => prev + 1);
   }, [isLastQuestion]);
 
   return {
     question: currentQuestion,
     questions,
-    currentIndex,
+    /** Sequential display index (0-based) for progress bar / "Питання X з Y" */
+    currentIndex: displayIndex,
     selectedAnswer,
     isAnswered,
     isLastQuestion,
+    isFinished,
     totalCount: questions.length,
     sessionCorrect,
     sessionAnswers,
+    skippedIds,
+    skippedCount: skippedIds.length,
     selectAnswer,
+    skipQuestion,
     nextQuestion,
     submitExam,
   };

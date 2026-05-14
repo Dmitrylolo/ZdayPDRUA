@@ -25,8 +25,8 @@ function QuestionCard({ question, currentIndex, totalCount }: QuestionCardProps)
         {
           borderWidth: 1,
           borderColor: '#E0E0E0',
-          overflow: 'hidden',
-          // Card shadow
+          // Do NOT use overflow:'hidden' here — it would clip the zoomed image.
+          // The card background is still clipped to borderRadius by the OS layer.
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.06,
@@ -35,8 +35,8 @@ function QuestionCard({ question, currentIndex, totalCount }: QuestionCardProps)
         },
       ]}
     >
-      {/* Content with padding */}
-      <View style={gutters.padding_16}>
+      {/* Content with padding — overflow hidden to respect rounded corners */}
+      <View style={[gutters.padding_16, { overflow: 'hidden' }]}>
         {/* Progress indicator */}
         <View style={[layout.row, layout.justifyBetween, layout.itemsCenter, gutters.marginBottom_12]}>
           <Text style={[fonts.gray200, fonts.size_12]}>
@@ -89,6 +89,10 @@ function QuestionCard({ question, currentIndex, totalCount }: QuestionCardProps)
             paddingVertical: 16,
             paddingHorizontal: 16,
             alignItems: 'center',
+            // overflow visible so zoomed image can expand beyond card boundaries
+            overflow: 'visible',
+            borderBottomLeftRadius: 16,
+            borderBottomRightRadius: 16,
           }}
         >
           <ZoomableImage source={imageSource} />

@@ -1,3 +1,4 @@
+import { CommonActions } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -127,7 +128,16 @@ function Exam({ navigation }: RootScreenProps<Paths.Exam>) {
           {savedExamId != null && (
             <Pressable
               onPress={() =>
-                navigation.navigate(Paths.ExamDetail, { examId: savedExamId })
+                navigation.dispatch(
+                  CommonActions.reset({
+                    index: 2,
+                    routes: [
+                      { name: Paths.Home },
+                      { name: Paths.Statistics },
+                      { name: Paths.ExamDetail, params: { examId: savedExamId } },
+                    ],
+                  }),
+                )
               }
               style={[gutters.marginTop_16]}
             >
