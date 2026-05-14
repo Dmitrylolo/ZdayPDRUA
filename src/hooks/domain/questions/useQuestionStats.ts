@@ -1,9 +1,11 @@
 import { useCallback, useState } from 'react';
 
-import type { Progress } from '@/services/progress/progress.types';
 import { progressStorage } from '@/services/progress/progressStorage';
 import { questionsRepository } from '@/services/questions/questionsRepository';
-import { vehicleCategoryStorage } from '@/services/vehicleCategory/vehicleCategory';
+import {
+  vehicleCategoryStorage,
+  type VehicleCategoryId,
+} from '@/services/vehicleCategory/vehicleCategory';
 
 export interface SectionStat {
   id: string;
@@ -15,21 +17,26 @@ export interface SectionStat {
 }
 
 export const useQuestionStats = () => {
-  const [progress, setProgress] = useState<Progress>(() =>
-    progressStorage.getProgress(),
-  );
+  // A version tick forces a re-render on every refresh(), even if progress
+  // data hasn't changed (e.g. when only the vehicle category was switched).
+  const [tick, setTick] = useState(0);
 
   const refresh = useCallback(() => {
-    setProgress(progressStorage.getProgress());
+    setTick(v => v + 1);
   }, []);
 
   const resetProgress = useCallback(() => {
     progressStorage.resetProgress();
-    setProgress(progressStorage.getProgress());
+    setTick(v => v + 1);
   }, []);
 
+  // Re-read live data on every render (in-memory, free)
+  void tick; // ensure re-render on refresh()
+  const progress = progressStorage.getProgress();
+
   // Respect active vehicle category
-  const activeCategoryId = vehicleCategoryStorage.getSelected();
+  const activeCategoryId: VehicleCategoryId | null =
+    vehicleCategoryStorage.getSelected();
   const activeSectionIds = activeCategoryId
     ? vehicleCategoryStorage.getSectionIds(activeCategoryId)
     : [];
@@ -92,6 +99,7 @@ export const useQuestionStats = () => {
     weakestSections,
     questionsWithMistakes,
     byQuestion: byQ,
+    activeCategoryId,
     refresh,
     resetProgress,
   };

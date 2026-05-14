@@ -1,4 +1,5 @@
 import { ChevronLeft } from 'lucide-react-native';
+import { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { AnswerState } from '@/components/AnswerOption';
@@ -15,8 +16,18 @@ const EXAM_SIZE = 20;
 function Exam({ navigation }: RootScreenProps<Paths.Exam>) {
   const { fonts, gutters, layout, borders } = useTheme();
 
-  const session = useQuestionSession({ shuffled: true, limit: EXAM_SIZE });
+  const session = useQuestionSession({ shuffled: true, limit: EXAM_SIZE, mode: 'exam' });
   const isFinished = session.isLastQuestion && session.isAnswered;
+  const examSaved = useRef(false);
+
+  // Save exam result exactly once when the exam finishes
+  useEffect(() => {
+    if (isFinished && !examSaved.current) {
+      examSaved.current = true;
+      session.submitExam();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFinished]);
 
   const getAnswerState = (answerIndex: number): AnswerState => {
     if (!session.isAnswered) return 'default';

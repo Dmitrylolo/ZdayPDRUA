@@ -21,7 +21,6 @@ import { Paths } from '@/navigation/paths';
 import type { RootScreenProps } from '@/navigation/types';
 import {
   VEHICLE_CATEGORIES,
-  vehicleCategoryStorage,
 } from '@/services/vehicleCategory/vehicleCategory';
 import { useTheme } from '@/theme';
 
@@ -72,7 +71,8 @@ function Home({ navigation }: RootScreenProps<Paths.Home>) {
   const stats = useQuestionStats();
   const [animTrigger, setAnimTrigger] = useState(0);
 
-  const activeCategoryId = vehicleCategoryStorage.getSelected();
+  // Read active category from stats (refreshed on focus, so badge updates after CategoryPicker)
+  const activeCategoryId = stats.activeCategoryId;
   const activeCategory = VEHICLE_CATEGORIES.find(c => c.id === activeCategoryId);
 
   // Reanimated shared values for progress bar (fill/empty flex)

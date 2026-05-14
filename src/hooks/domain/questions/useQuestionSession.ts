@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import type { ExamResult } from '@/services/progress/progress.types';
 import { progressStorage } from '@/services/progress/progressStorage';
 import type { Question } from '@/services/questions/questions.types';
 import { questionsRepository } from '@/services/questions/questionsRepository';
@@ -10,6 +11,8 @@ interface SessionConfig {
   questionIds?: string[];
   shuffled?: boolean;
   limit?: number;
+  /** 'exam' mode skips saving training progress per answer. Call submitExam() on finish. */
+  mode?: 'training' | 'exam';
 }
 
 const buildQuestions = (config: SessionConfig): Question[] => {
@@ -67,15 +70,41 @@ export const useQuestionSession = (config: SessionConfig) => {
         ...prev,
         [currentQuestion.id]: answerIndex,
       }));
-      const isCorrect = answerIndex === currentQuestion.correctAnswerIndex;
-      progressStorage.saveAttempt(
-        currentQuestion.id,
-        isCorrect,
-        currentQuestion.sectionId,
-      );
+      // In exam mode, don't pollute training stats
+      if (config.mode !== 'exam') {
+        const isCorrect = answerIndex === currentQuestion.correctAnswerIndex;
+        progressStorage.saveAttempt(
+          currentQuestion.id,
+          isCorrect,
+          currentQuestion.sectionId,
+        );
+      }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [isAnswered, currentQuestion],
   );
+
+  const submitExam = useCallback((): ExamResult => {
+    const catId = vehicleCategoryStorage.getSelected() ?? 'B';
+    const answers = questions.map(q => ({
+      questionId: q.id,
+      sectionId: q.sectionId,
+      selectedAnswer: sessionAnswers[q.id] ?? -1,
+      correctAnswer: q.correctAnswerIndex ?? -1,
+      isCorrect: sessionAnswers[q.id] === q.correctAnswerIndex,
+    }));
+    const score = answers.filter(a => a.isCorrect).length;
+    const result: ExamResult = {
+      id: String(Date.now()),
+      timestamp: Date.now(),
+      score,
+      total: questions.length,
+      categoryId: catId,
+      answers,
+    };
+    progressStorage.saveExamResult(result);
+    return result;
+  }, [questions, sessionAnswers]);
 
   const nextQuestion = useCallback(() => {
     if (isLastQuestion) return;
@@ -96,5 +125,6 @@ export const useQuestionSession = (config: SessionConfig) => {
     sessionAnswers,
     selectAnswer,
     nextQuestion,
+    submitExam,
   };
 };
