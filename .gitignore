@@ -81,6 +81,9 @@ yarn-error.log
 parser/__pycache__/
 parser/output/
 parser/*.pdf
+parser/*.json
+parser/*.html
+parser/.venv/
 
 # vscode
 .vscode/*
