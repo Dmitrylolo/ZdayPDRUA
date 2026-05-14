@@ -243,7 +243,13 @@ function formatDate(ts: number): string {
   return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-function ExamResultCard({ result }: { result: ExamResult }) {
+function ExamResultCard({
+  result,
+  onViewDetail,
+}: {
+  result: ExamResult;
+  onViewDetail: () => void;
+}) {
   const { fonts, gutters, layout, borders } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const pct = Math.round((result.score / result.total) * 100);
@@ -371,6 +377,23 @@ function ExamResultCard({ result }: { result: ExamResult }) {
           })}
         </View>
       )}
+
+      {/* Always-visible detail button */}
+      <Pressable
+        onPress={onViewDetail}
+        style={({ pressed }) => [{
+          borderTopWidth: 1,
+          borderTopColor: '#F0F0F0',
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          alignItems: 'center' as const,
+          backgroundColor: pressed ? '#F5F5FF' : '#FAFAFA',
+        }]}
+      >
+        <Text style={[fonts.size_12, fonts.bold, { color: '#2980B9' }]}>
+          Переглянути детально →
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -745,7 +768,13 @@ function Statistics({ navigation }: RootScreenProps<Paths.Statistics>) {
               </View>
 
               {examResults.map(result => (
-                <ExamResultCard key={result.id} result={result} />
+                <ExamResultCard
+                  key={result.id}
+                  result={result}
+                  onViewDetail={() =>
+                    navigation.navigate(Paths.ExamDetail, { examId: result.id })
+                  }
+                />
               ))}
             </>
           )}

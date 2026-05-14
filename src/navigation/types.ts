@@ -16,6 +16,7 @@ export type RootStackParamList = {
     questionIds?: string[];
   };
   [Paths.Exam]: undefined;
+  [Paths.ExamDetail]: { examId: string };
   [Paths.Mistakes]: undefined;
   [Paths.Statistics]: undefined;
   [Paths.Example]: undefined;

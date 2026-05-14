@@ -19,12 +19,14 @@ function Exam({ navigation }: RootScreenProps<Paths.Exam>) {
   const session = useQuestionSession({ shuffled: true, limit: EXAM_SIZE, mode: 'exam' });
   const isFinished = session.isLastQuestion && session.isAnswered;
   const examSaved = useRef(false);
+  const savedExamId = useRef<string | null>(null);
 
   // Save exam result exactly once when the exam finishes
   useEffect(() => {
     if (isFinished && !examSaved.current) {
       examSaved.current = true;
-      session.submitExam();
+      const result = session.submitExam();
+      savedExamId.current = result.id;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFinished]);
@@ -118,6 +120,21 @@ function Exam({ navigation }: RootScreenProps<Paths.Exam>) {
               Спробувати знову
             </Text>
           </Pressable>
+
+          {savedExamId.current != null && (
+            <Pressable
+              onPress={() =>
+                navigation.navigate(Paths.ExamDetail, {
+                  examId: savedExamId.current!,
+                })
+              }
+            style={[gutters.marginTop_16]}
+            >
+              <Text style={[fonts.size_16, { color: '#2980B9' }]}>
+                Переглянути детально →
+              </Text>
+            </Pressable>
+          )}
         </View>
       </SafeScreen>
     );
@@ -153,7 +170,7 @@ function Exam({ navigation }: RootScreenProps<Paths.Exam>) {
           Іспит
         </Text>
         <Text style={[{ fontSize: 14 }, fonts.gray200]}>
-          {`${session.sessionCorrect}✓`}
+          {`${session.currentIndex + 1} / ${session.totalCount}`}
         </Text>
       </View>
 
