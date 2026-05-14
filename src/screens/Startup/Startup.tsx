@@ -1,4 +1,4 @@
-import type { RootScreenProps } from '@/Navigation/types';
+import type { RootScreenProps } from '@/navigation/types';
 
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
@@ -26,7 +26,7 @@ function Startup({ navigation }: RootScreenProps<Paths.Startup>) {
     if (isSuccess) {
       navigation.reset({
         index: 0,
-        routes: [{ name: Paths.Example }],
+        routes: [{ name: Paths.Home }],
       });
     }
   }, [isSuccess, navigation]);

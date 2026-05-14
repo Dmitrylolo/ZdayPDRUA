@@ -7,6 +7,15 @@ export type RootScreenProps<
 > = StackScreenProps<RootStackParamList, S>;
 
 export type RootStackParamList = {
-  [Paths.Example]: undefined;
   [Paths.Startup]: undefined;
+  [Paths.Home]: undefined;
+  [Paths.Categories]: undefined;
+  [Paths.Quiz]: {
+    sectionIds?: string[];
+    questionIds?: string[];
+  };
+  [Paths.Exam]: undefined;
+  [Paths.Mistakes]: undefined;
+  [Paths.Statistics]: undefined;
+  [Paths.Example]: undefined;
 };

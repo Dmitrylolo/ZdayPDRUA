@@ -1,4 +1,10 @@
 export const enum Paths {
-  Example = 'example',
   Startup = 'startup',
+  Home = 'home',
+  Categories = 'categories',
+  Quiz = 'quiz',
+  Exam = 'exam',
+  Mistakes = 'mistakes',
+  Statistics = 'statistics',
+  Example = 'example',
 }
