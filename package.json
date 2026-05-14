@@ -23,6 +23,7 @@
     "i18next": "^25.3.2",
     "intl-pluralrules": "^2.0.1",
     "ky": "^1.8.2",
+    "lucide-react-native": "^1.14.0",
     "react": "19.2.3",
     "react-error-boundary": "^6.1.1",
     "react-i18next": "^16.5.4",

@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native';
+import { Check, X } from 'lucide-react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 
 import type { Answer } from '@/services/questions/questions.types';
 import { useTheme } from '@/theme';
@@ -21,6 +22,17 @@ const STATE_COLORS: Record<AnswerState, { bg: string; border: string; text: stri
 
 const LABEL = ['А', 'Б', 'В', 'Г', 'Д'];
 
+const cardShadow = Platform.select({
+  ios: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+  },
+  android: { elevation: 3 },
+  default: {},
+});
+
 function AnswerOption({ answer, state, onPress, disabled }: AnswerOptionProps) {
   const { gutters, layout, borders, fonts } = useTheme();
   const colors = STATE_COLORS[state];
@@ -36,6 +48,7 @@ function AnswerOption({ answer, state, onPress, disabled }: AnswerOptionProps) {
         borders.rounded_16,
         gutters.padding_16,
         gutters.marginBottom_12,
+        cardShadow,
         {
           backgroundColor: pressed && !disabled ? '#F5F5F5' : colors.bg,
           borderWidth: 1.5,
@@ -44,6 +57,7 @@ function AnswerOption({ answer, state, onPress, disabled }: AnswerOptionProps) {
         },
       ]}
     >
+      {/* Label circle */}
       <View
         style={[
           layout.justifyCenter,
@@ -57,9 +71,15 @@ function AnswerOption({ answer, state, onPress, disabled }: AnswerOptionProps) {
           },
         ]}
       >
-        <Text style={[fonts.size_12, fonts.bold, { color: '#FFFFFF' }]}>
-          {label}
-        </Text>
+        {state === 'correct' ? (
+          <Check size={16} color="#FFFFFF" strokeWidth={3} />
+        ) : state === 'wrong' ? (
+          <X size={16} color="#FFFFFF" strokeWidth={3} />
+        ) : (
+          <Text style={[fonts.size_12, fonts.bold, { color: '#FFFFFF' }]}>
+            {label}
+          </Text>
+        )}
       </View>
       <Text
         style={[

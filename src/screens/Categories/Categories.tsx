@@ -1,4 +1,5 @@
 import { useFocusEffect } from '@react-navigation/native';
+import { ChevronLeft } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -71,7 +72,7 @@ function Categories({ navigation }: RootScreenProps<Paths.Categories>) {
         ]}
       >
         <Pressable onPress={() => navigation.goBack()}>
-          <Text style={[fonts.size_24, fonts.purple500]}>←</Text>
+          <ChevronLeft size={28} color="#44427D" />
         </Pressable>
         <Text style={[fonts.size_16, fonts.bold, fonts.gray800]}>
           Вибір розділів

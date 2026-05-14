@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native';
+import { CheckCircle2, Circle } from 'lucide-react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 
 import type { QuestionSection } from '@/services/questions/questions.types';
 import { useTheme } from '@/theme';
@@ -9,6 +10,17 @@ interface CategoryCardProps {
   onPress: () => void;
   answeredCount?: number;
 }
+
+const cardShadow = Platform.select({
+  ios: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+  },
+  android: { elevation: 2 },
+  default: {},
+});
 
 function CategoryCard({
   section,
@@ -27,6 +39,7 @@ function CategoryCard({
         borders.rounded_16,
         gutters.padding_16,
         gutters.marginBottom_12,
+        cardShadow,
         {
           backgroundColor: isSelected ? '#E1E1EF' : '#FFFFFF',
           borderWidth: 1.5,
@@ -35,26 +48,12 @@ function CategoryCard({
         },
       ]}
     >
-      {/* Checkbox */}
-      <View
-        style={[
-          layout.justifyCenter,
-          layout.itemsCenter,
-          {
-            width: 24,
-            height: 24,
-            borderRadius: 12,
-            borderWidth: 2,
-            borderColor: isSelected ? '#44427D' : '#A1A1A1',
-            backgroundColor: isSelected ? '#44427D' : 'transparent',
-            marginRight: 12,
-          },
-        ]}
-      >
-        {isSelected && (
-          <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' }}>
-            ✓
-          </Text>
+      {/* Checkbox icon */}
+      <View style={{ marginRight: 12 }}>
+        {isSelected ? (
+          <CheckCircle2 size={24} color="#44427D" />
+        ) : (
+          <Circle size={24} color="#A1A1A1" />
         )}
       </View>
 

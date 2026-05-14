@@ -1,13 +1,14 @@
+import { ChevronLeft } from 'lucide-react-native';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import type { AnswerState } from '@/components/AnswerOption';
+import AnswerOption from '@/components/AnswerOption';
+import QuestionCard from '@/components/QuestionCard';
+import { SafeScreen } from '@/components/templates';
+import { useQuestionSession } from '@/hooks/domain/questions/useQuestionSession';
 import { Paths } from '@/navigation/paths';
 import type { RootScreenProps } from '@/navigation/types';
 import { useTheme } from '@/theme';
-import { SafeScreen } from '@/components/templates';
-import AnswerOption from '@/components/AnswerOption';
-import type { AnswerState } from '@/components/AnswerOption';
-import QuestionCard from '@/components/QuestionCard';
-import { useQuestionSession } from '@/hooks/domain/questions/useQuestionSession';
 
 function Quiz({ navigation, route }: RootScreenProps<Paths.Quiz>) {
   const { sectionIds, questionIds } = route.params;
@@ -29,9 +30,10 @@ function Quiz({ navigation, route }: RootScreenProps<Paths.Quiz>) {
           <Text style={[fonts.size_16, fonts.gray400]}>Немає питань</Text>
           <Pressable
             onPress={() => navigation.goBack()}
-            style={[gutters.marginTop_24]}
+            style={[layout.row, layout.itemsCenter, gutters.marginTop_24]}
           >
-            <Text style={[fonts.size_16, fonts.purple500]}>← Назад</Text>
+            <ChevronLeft size={20} color="#44427D" />
+            <Text style={[fonts.size_16, fonts.purple500]}>Назад</Text>
           </Pressable>
         </View>
       </SafeScreen>
@@ -51,7 +53,7 @@ function Quiz({ navigation, route }: RootScreenProps<Paths.Quiz>) {
         ]}
       >
         <Pressable onPress={() => navigation.goBack()}>
-          <Text style={[fonts.size_24, fonts.purple500]}>←</Text>
+          <ChevronLeft size={28} color="#44427D" />
         </Pressable>
         <Text style={[fonts.size_16, fonts.bold, fonts.gray800, { marginLeft: 16 }]}>
           Навчання

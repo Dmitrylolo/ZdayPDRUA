@@ -1,6 +1,18 @@
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  AlertCircle,
+  BarChart2,
+  BookOpen,
+  ClipboardList,
+} from 'lucide-react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { SafeScreen } from '@/components/templates';
 import { useQuestionStats } from '@/hooks/domain/questions/useQuestionStats';
@@ -8,18 +20,58 @@ import { Paths } from '@/navigation/paths';
 import type { RootScreenProps } from '@/navigation/types';
 import { useTheme } from '@/theme';
 
-type MenuCard = {
-  id: string;
-  title: string;
-  subtitle: string;
-  emoji: string;
-  onPress: () => void;
-  accent?: boolean;
+const ICON_COLORS = {
+  training: '#44427D',
+  exam: '#2980B9',
+  mistakes: '#E67E22',
+  statistics: '#27AE60',
 };
+
+const cardShadow = Platform.select({
+  ios: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  android: { elevation: 4 },
+  default: {},
+});
+
+function useCountUp(target: number, trigger: number) {
+  const [value, setValue] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (target === 0) { setValue(0); return; }
+    let step = 0;
+    const steps = 40;
+    timerRef.current = setInterval(() => {
+      step++;
+      setValue(Math.round((step / steps) * target));
+      if (step >= steps) {
+        setValue(target);
+        if (timerRef.current) clearInterval(timerRef.current);
+      }
+    }, 900 / steps);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trigger]);
+
+  return value;
+}
 
 function Home({ navigation }: RootScreenProps<Paths.Home>) {
   const { fonts, gutters, layout, borders } = useTheme();
   const stats = useQuestionStats();
+  const [animTrigger, setAnimTrigger] = useState(0);
+
+  // Reanimated shared values for progress bar (fill/empty flex)
+  const barFill = useSharedValue(0);
+  const barEmpty = useSharedValue(100);
+  const fillStyle = useAnimatedStyle(() => ({ flex: barFill.value }));
+  const emptyStyle = useAnimatedStyle(() => ({ flex: barEmpty.value }));
 
   useFocusEffect(
     useCallback(() => {
@@ -27,34 +79,56 @@ function Home({ navigation }: RootScreenProps<Paths.Home>) {
     }, [stats.refresh]),
   );
 
-  const menuCards: MenuCard[] = [
+  // Animate whenever stats change (on focus refresh)
+  useEffect(() => {
+    barFill.value = 0;
+    barEmpty.value = 100;
+    barFill.value = withTiming(stats.coveragePercentage, {
+      duration: 900,
+      easing: Easing.out(Easing.cubic),
+    });
+    barEmpty.value = withTiming(100 - stats.coveragePercentage, {
+      duration: 900,
+      easing: Easing.out(Easing.cubic),
+    });
+    setAnimTrigger(t => t + 1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats.coveragePercentage, stats.uniqueAnswered]);
+
+  const displayPct = useCountUp(stats.coveragePercentage, animTrigger);
+  const displayAnswered = useCountUp(stats.uniqueAnswered, animTrigger);
+
+  const menuCards = [
     {
       id: 'training',
       title: 'Навчання',
       subtitle: 'Вивчай за розділами',
-      emoji: '📚',
+      icon: <BookOpen size={28} color={ICON_COLORS.training} />,
+      iconBg: '#E1E1EF',
       onPress: () => navigation.navigate(Paths.Categories),
-      accent: true,
     },
     {
       id: 'exam',
       title: 'Іспит',
       subtitle: '20 випадкових питань',
-      emoji: '📝',
+      icon: <ClipboardList size={28} color={ICON_COLORS.exam} />,
+      iconBg: '#D6EAF8',
       onPress: () => navigation.navigate(Paths.Exam),
     },
     {
       id: 'mistakes',
       title: 'Помилки',
       subtitle: `${stats.questionsWithMistakes.length} питань`,
-      emoji: '⚠️',
+      icon: <AlertCircle size={28} color={ICON_COLORS.mistakes} />,
+      iconBg: '#FDEBD0',
       onPress: () => navigation.navigate(Paths.Mistakes),
     },
     {
       id: 'statistics',
       title: 'Статистика',
       subtitle: `${stats.correctPercentage}% правильно`,
-      emoji: '📊',
+      icon: <BarChart2 size={28} color={ICON_COLORS.statistics} />,
+      iconBg: '#D5F5E3',
       onPress: () => navigation.navigate(Paths.Statistics),
     },
   ];
@@ -66,7 +140,7 @@ function Home({ navigation }: RootScreenProps<Paths.Home>) {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={[gutters.marginBottom_32, gutters.marginTop_16]}>
+        <View style={[gutters.marginBottom_24, gutters.marginTop_16]}>
           <Text
             style={[
               fonts.size_32,
@@ -78,7 +152,7 @@ function Home({ navigation }: RootScreenProps<Paths.Home>) {
             Здай ПДР UA
           </Text>
           <Text style={[fonts.size_16, fonts.gray200, { marginTop: 4 }]}>
-            Підготовка до іспиту
+            Підготовка до іспиту ПДР
           </Text>
         </View>
 
@@ -87,42 +161,53 @@ function Home({ navigation }: RootScreenProps<Paths.Home>) {
           style={[
             borders.rounded_16,
             gutters.padding_16,
-            gutters.marginBottom_32,
-            { backgroundColor: '#44427D' },
+            gutters.marginBottom_24,
+            {
+              backgroundColor: '#44427D',
+              shadowColor: '#44427D',
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.3,
+              shadowRadius: 12,
+              elevation: 8,
+            },
           ]}
         >
-          <View style={[layout.row, layout.justifyBetween, layout.itemsCenter, { marginBottom: 10 }]}>
+          <View
+            style={[
+              layout.row,
+              layout.justifyBetween,
+              layout.itemsCenter,
+              { marginBottom: 12 },
+            ]}
+          >
             <Text style={[fonts.size_16, { color: '#E1E1EF' }]}>
               Загальний прогрес
             </Text>
-            <Text
-              style={[fonts.size_24, fonts.bold, { color: '#FFFFFF' }]}
-            >
-              {`${stats.coveragePercentage}%`}
+            <Text style={[fonts.size_24, fonts.bold, { color: '#FFFFFF' }]}>
+              {`${displayPct}%`}
             </Text>
           </View>
 
-          {/* Coverage bar */}
+          {/* Animated flex progress bar */}
           <View
             style={{
               height: 8,
               borderRadius: 4,
+              overflow: 'hidden',
+              flexDirection: 'row',
               backgroundColor: 'rgba(255,255,255,0.2)',
+              marginBottom: 10,
             }}
           >
-            <View
-              style={{
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: '#FFFFFF',
-                width: `${stats.coveragePercentage}%`,
-              }}
+            <Animated.View
+              style={[fillStyle, { backgroundColor: '#FFFFFF', borderRadius: 4 }]}
             />
+            <Animated.View style={emptyStyle} />
           </View>
 
-          <View style={[layout.row, layout.justifyBetween, { marginTop: 8 }]}>
+          <View style={[layout.row, layout.justifyBetween]}>
             <Text style={[fonts.size_12, { color: '#E1E1EF' }]}>
-              {`Відповіли ${stats.uniqueAnswered} з ${stats.totalQuestions}`}
+              {`Відповіли ${displayAnswered} з ${stats.totalQuestions}`}
             </Text>
             <Text style={[fonts.size_12, { color: '#E1E1EF' }]}>
               {`✓ ${stats.correctCount}  ✗ ${stats.wrongCount}`}
@@ -130,7 +215,7 @@ function Home({ navigation }: RootScreenProps<Paths.Home>) {
           </View>
         </View>
 
-        {/* Menu grid */}
+        {/* Menu grid — all cards equal, differentiated by icon color */}
         <View style={[layout.row, layout.wrap, { gap: 12 }]}>
           {menuCards.map(card => (
             <Pressable
@@ -138,32 +223,42 @@ function Home({ navigation }: RootScreenProps<Paths.Home>) {
               onPress={card.onPress}
               style={({ pressed }) => [
                 borders.rounded_16,
+                cardShadow,
                 {
-                  backgroundColor: card.accent ? '#44427D' : '#FFFFFF',
+                  backgroundColor: '#FFFFFF',
                   borderWidth: 1,
-                  borderColor: card.accent ? '#44427D' : '#E0E0E0',
+                  borderColor: '#F0F0F0',
                   padding: 20,
                   width: '47%',
                   opacity: pressed ? 0.85 : 1,
                 },
               ]}
             >
-              <Text style={{ fontSize: 32, marginBottom: 8 }}>{card.emoji}</Text>
+              {/* Colored icon container */}
+              <View
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 16,
+                  backgroundColor: card.iconBg,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginBottom: 12,
+                }}
+              >
+                {card.icon}
+              </View>
               <Text
                 style={[
                   fonts.size_16,
                   fonts.bold,
-                  { color: card.accent ? '#FFFFFF' : '#303030', marginBottom: 4 },
+                  fonts.gray800,
+                  { marginBottom: 4 },
                 ]}
               >
                 {card.title}
               </Text>
-              <Text
-                style={[
-                  fonts.size_12,
-                  { color: card.accent ? '#E1E1EF' : '#A1A1A1' },
-                ]}
-              >
+              <Text style={[fonts.size_12, fonts.gray200]}>
                 {card.subtitle}
               </Text>
             </Pressable>

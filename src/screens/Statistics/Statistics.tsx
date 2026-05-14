@@ -1,6 +1,13 @@
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useState } from 'react';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { SafeScreen } from '@/components/templates';
 import type { SectionStat } from '@/hooks/domain/questions/useQuestionStats';
@@ -9,28 +16,50 @@ import { Paths } from '@/navigation/paths';
 import type { RootScreenProps } from '@/navigation/types';
 import { useTheme } from '@/theme';
 
-function MiniBar({
-  value,
-  total,
+/** Animated progress bar that runs from 0 → pct on mount */
+function AnimatedBar({
+  pct,
   color,
+  height = 6,
+  bgColor = '#F0F0F0',
 }: {
-  value: number;
-  total: number;
+  pct: number;
   color: string;
+  height?: number;
+  bgColor?: string;
 }) {
-  const pct = total > 0 ? Math.min((value / total) * 100, 100) : 0;
+  const fill = useSharedValue(0);
+  const empty = useSharedValue(100);
+
+  useEffect(() => {
+    fill.value = withTiming(pct, {
+      duration: 600,
+      easing: Easing.out(Easing.cubic),
+    });
+    empty.value = withTiming(100 - pct, {
+      duration: 600,
+      easing: Easing.out(Easing.cubic),
+    });
+  // only run on mount (key trick handles re-mount on re-open)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fillStyle = useAnimatedStyle(() => ({ flex: fill.value }));
+  const emptyStyle = useAnimatedStyle(() => ({ flex: empty.value }));
+
   return (
     <View
-      style={{ height: 6, borderRadius: 3, backgroundColor: '#F0F0F0', flex: 1 }}
+      style={{
+        height,
+        borderRadius: height / 2,
+        overflow: 'hidden',
+        flexDirection: 'row',
+        backgroundColor: bgColor,
+        flex: 1,
+      }}
     >
-      <View
-        style={{
-          height: 6,
-          borderRadius: 3,
-          backgroundColor: color,
-          width: `${pct}%`,
-        }}
-      />
+      <Animated.View style={[fillStyle, { backgroundColor: color }]} />
+      <Animated.View style={emptyStyle} />
     </View>
   );
 }
@@ -80,14 +109,13 @@ function SectionRow({
         ]}
       >
         {/* Toggle arrow */}
-        <Text
-          style={[
-            fonts.size_12,
-            { color: '#44427D', width: 16, marginRight: 8 },
-          ]}
-        >
-          {isExpanded ? '▼' : '▶'}
-        </Text>
+        <View style={{ width: 20, marginRight: 8, alignItems: 'center' }}>
+          {isExpanded ? (
+            <ChevronDown size={16} color="#44427D" />
+          ) : (
+            <ChevronRight size={16} color="#A1A1A1" />
+          )}
+        </View>
 
         {/* Title */}
         <Text
@@ -121,12 +149,12 @@ function SectionRow({
         </View>
       </Pressable>
 
-      {/* Mini progress bar in header */}
+      {/* Animated progress bar in header */}
       {hasActivity && (
-        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-          <MiniBar
-            value={section.answeredCount}
-            total={section.totalCount}
+        <View style={{ paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row' }}>
+          <AnimatedBar
+            key={`header-${section.id}-${section.answeredCount}`}
+            pct={pct}
             color={correctPct >= 70 ? '#27AE60' : '#44427D'}
           />
         </View>
@@ -187,9 +215,9 @@ function SectionRow({
                   {`${correctPct}%`}
                 </Text>
               </View>
-              <MiniBar
-                value={section.correctCount}
-                total={section.answeredCount}
+              <AnimatedBar
+                key={`detail-${section.id}-${section.correctCount}`}
+                pct={correctPct}
                 color={correctPct >= 70 ? '#27AE60' : '#C13333'}
               />
             </View>
@@ -213,11 +241,31 @@ function Statistics({ navigation }: RootScreenProps<Paths.Statistics>) {
     new Set(),
   );
 
+  // Animated overall bar
+  const barFill = useSharedValue(0);
+  const barEmpty = useSharedValue(100);
+  const fillStyle = useAnimatedStyle(() => ({ flex: barFill.value }));
+  const emptyStyle = useAnimatedStyle(() => ({ flex: barEmpty.value }));
+
   useFocusEffect(
     useCallback(() => {
       stats.refresh();
     }, [stats.refresh]),
   );
+
+  useEffect(() => {
+    barFill.value = 0;
+    barEmpty.value = 100;
+    barFill.value = withTiming(stats.coveragePercentage, {
+      duration: 900,
+      easing: Easing.out(Easing.cubic),
+    });
+    barEmpty.value = withTiming(100 - stats.coveragePercentage, {
+      duration: 900,
+      easing: Easing.out(Easing.cubic),
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats.coveragePercentage]);
 
   const toggleSection = useCallback((id: string) => {
     setExpandedSections(prev => {
@@ -245,7 +293,7 @@ function Statistics({ navigation }: RootScreenProps<Paths.Statistics>) {
         ]}
       >
         <Pressable onPress={() => navigation.goBack()}>
-          <Text style={[fonts.size_24, fonts.purple500]}>←</Text>
+          <ChevronLeft size={28} color="#44427D" />
         </Pressable>
         <Text style={[fonts.size_16, fonts.bold, fonts.gray800]}>
           Статистика
@@ -272,23 +320,36 @@ function Statistics({ navigation }: RootScreenProps<Paths.Statistics>) {
             Загальний прогрес
           </Text>
 
-          {/* Coverage bar */}
+          {/* Animated coverage bar */}
           <View
-            style={[layout.row, layout.itemsCenter, { gap: 12, marginBottom: 6 }]}
+            style={[
+              layout.row,
+              layout.itemsCenter,
+              { gap: 12, marginBottom: 6 },
+            ]}
           >
             <View
-              style={{ flex: 1, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.2)' }}
+              style={{
+                flex: 1,
+                height: 8,
+                borderRadius: 4,
+                overflow: 'hidden',
+                flexDirection: 'row',
+                backgroundColor: 'rgba(255,255,255,0.2)',
+              }}
             >
-              <View
-                style={{
-                  height: 8,
-                  borderRadius: 4,
-                  backgroundColor: '#FFFFFF',
-                  width: `${stats.coveragePercentage}%`,
-                }}
+              <Animated.View
+                style={[fillStyle, { backgroundColor: '#FFFFFF' }]}
               />
+              <Animated.View style={emptyStyle} />
             </View>
-            <Text style={[fonts.size_12, fonts.bold, { color: '#FFFFFF', width: 36, textAlign: 'right' }]}>
+            <Text
+              style={[
+                fonts.size_12,
+                fonts.bold,
+                { color: '#FFFFFF', width: 36, textAlign: 'right' },
+              ]}
+            >
               {`${stats.coveragePercentage}%`}
             </Text>
           </View>

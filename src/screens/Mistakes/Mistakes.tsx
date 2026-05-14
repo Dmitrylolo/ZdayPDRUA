@@ -1,13 +1,14 @@
 import { useFocusEffect } from '@react-navigation/native';
+import { ChevronLeft } from 'lucide-react-native';
 import { useCallback } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { Paths } from '@/navigation/paths';
-import type { RootScreenProps } from '@/navigation/types';
-import { useTheme } from '@/theme';
 import { SafeScreen } from '@/components/templates';
 import { useQuestionStats } from '@/hooks/domain/questions/useQuestionStats';
+import { Paths } from '@/navigation/paths';
+import type { RootScreenProps } from '@/navigation/types';
 import { questionsRepository } from '@/services/questions/questionsRepository';
+import { useTheme } from '@/theme';
 
 function Mistakes({ navigation }: RootScreenProps<Paths.Mistakes>) {
   const { fonts, gutters, layout, borders } = useTheme();
@@ -50,7 +51,7 @@ function Mistakes({ navigation }: RootScreenProps<Paths.Mistakes>) {
         ]}
       >
         <Pressable onPress={() => navigation.goBack()}>
-          <Text style={[fonts.size_24, fonts.purple500]}>←</Text>
+          <ChevronLeft size={28} color="#44427D" />
         </Pressable>
         <Text style={[fonts.size_16, fonts.bold, fonts.gray800]}>
           Помилки

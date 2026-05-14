@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react-native';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { AnswerState } from '@/components/AnswerOption';
@@ -135,7 +136,7 @@ function Exam({ navigation }: RootScreenProps<Paths.Exam>) {
         ]}
       >
         <Pressable onPress={() => navigation.goBack()}>
-          <Text style={[fonts.size_24, fonts.purple500]}>←</Text>
+          <ChevronLeft size={28} color="#44427D" />
         </Pressable>
         <Text style={[fonts.size_16, fonts.bold, fonts.gray800]}>
           Іспит
